@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# Starting with cleaned up (post-Trimmomatic) fastq files 
+
+#list of define variables w/paths on MGI server
