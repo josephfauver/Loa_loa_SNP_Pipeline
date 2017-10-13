@@ -1,7 +1,51 @@
+# This document describes the computational steps taken in order to produce the data used for our Loa loa whole genome analysis.
+# The purpose of this project is to determine if Loa loa sequenced from the eastern DRC is similar to the two already published Loa loa
+# genomes, as well as potentially identify SNPs in gene regions associated with circadian rythm as these worms displayed atypical 
+# periodicity. 
+#
+#
+# The main goals of this string of scripts is to
+#
+# 1)Remove adaptors and low quality reads using Trimmomatic
+# 
+# 2)Align reads to both reference genomes using BWA mem
+#   
+#   a) PacBio + Illumina (PRJNA246086)
+#   b) 454 Seq (PRJNA60051)
+#
+# 3)Remove read duplicates using Piccard tools
+#
+# 4)Call and filter variants according the GATK Best Practices
+#
+# 5)Annotate SNPs using snpEff
 #
 #
 #
-#This document describes the computational steps taken in order to produce the data used for our Loa loa whole genome analysis.
-#The purpose of this project is to determine if Loa loa sequenced from the eastern DRC is similar to the two already published Loa loa
-#genomes, as well as potentially identify SNPs in gene regions associated with circadian rythm as these worms displayed atypical 
-#periodicity. 
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
