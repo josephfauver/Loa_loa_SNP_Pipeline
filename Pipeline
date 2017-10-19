@@ -1,5 +1,132 @@
 #!/bin/bash
 
-# Starting with cleaned up (post-Trimmomatic) fastq files 
+!/bin/bash
 
-#list of define variables w/paths on MGI server
+#This document describes how to call variants using GATK.
+
+file_base=$1
+
+f1=${file_base}.end1.fastq
+f2=${file_base}.end2.fastq
+
+#List of defined variables w/paths on MGI server
+#Programs
+
+java1=/gapp/x64linux/opt/java/jre/jre1.8.0_31/bin/java
+
+bwa=/gscmnt/gc2732/mitrevalab/TOOLS/SOFTWARE/bwa_0.7.15/bwa.kit/bwa
+
+MarkDuplicates=/gsc/scripts/pkg/bio/picard/picard-tools-1.92/MarkDuplicates.jar
+
+GATK=/gscmnt/gc2732/mitrevalab/TOOLS/SOFTWARE/GenomeAnalysisTK-3.6/GenomeAnalysisTK.jar
+
+#Reference Databases
+#Each database consist of the corresponding Loa loa genome (454=PRJNA60051, PacBio=PRJNA246086) and the Human Genome GRCh38 (ensembl release 84) 
+#_Variant genome was generated using picard-tools CreateSequenceDictionary tool to be compatable with GATK
+
+Loa_454=/gscmnt/gc2732/mitrevalab/collab/jofauver/References/Loa_454_Human/Loa_454_human.fa
+
+Loa_PacBio=/gscmnt/gc2732/mitrevalab/collab/jofauver/References/Loa_PacBio_Human/Loa_Human_Mito_Ref.fa
+
+Loa_454_Variant=/gscmnt/gc2732/mitrevalab/collab/jofauver/References/Loa_454_Human/Variant_Genome/Loa_454_human.fasta
+
+Loa_PacBio_Variant=/gscmnt/gc2732/mitrevalab/collab/jofauver/References/Loa_PacBio_Human/Variant/Loa_Human_Mito_Ref.fasta
+
+Loa_454_Interval=/gscmnt/gc2732/mitrevalab/collab/jofauver/Query/Final/loa_454.intervals
+
+Loa_PacBio_Interval=/gscmnt/gc2732/mitrevalab/collab/jofauver/Query/Final/loa_PacBio.intervals
+
+#Using bwa -mem to align reads to PRE-indexed genome. -R defines read group info. -M marks shorter split hits as secondary for Picard downstream 
+
+#454 Reference Genome
+
+$bwa mem -M -R "@RG\tID:SAMPLE1_RG1\tPL:illumina\tPU:SAMPLE1_RG1_UNIT1\tLB:LIBRARY1\tSM:SAMPLE1" $Loa_454 $f1 $f2 > ${file_base}_454_aligned.sam 
+
+#PacBio Reference Genome
+
+$bwa mem -M -R "@RG\tID:SAMPLE1_RG1\tPL:illumina\tPU:SAMPLE1_RG1_UNIT1\tLB:LIBRARY1\tSM:SAMPLE1" $Loa_PacBio $f1 $f2 > ${file_base}_PacBio_aligned.sam 
+
+#Convert SAM file into BAM file
+
+#454
+samtools view -bS ${file_base}_454_aligned.sam -o ${file_base}_454_aligned.bam
+
+samtools sort ${file_base}_454_aligned.bam ${file_base}_454.sorted
+
+#PacBio
+samtools view -bS ${file_base}_454_aligned.sam -o ${file_base}_PacBio_aligned.bam
+
+samtools sort ${file_base}_454_aligned.bam ${file_base}_PacBio.sorted
+
+# IF multiple bam files for same sample, combine here
+# Remove duplicate reads and index the output bam file
+
+#454
+java -Xmx8g -jar $MarkDuplicates MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 REMOVE_DUPLICATES=true ASSUME_SORTED=true METRICS_FILE=${file_base}_454_dedup.metrics INPUT=${file_base}_454.sorted.bam OUTPUT=${file_base}_454_dup_removed.bam
+
+samtools index ${file_base}_454_dup_removed.bam 
+
+#PacBio
+java -Xmx8g -jar $MarkDuplicates MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 REMOVE_DUPLICATES=true ASSUME_SORTED=true METRICS_FILE=${file_base}._PacBio_dedup.metrics INPUT=${file_base}_PacBio.sorted.bam OUTPUT=${file_base}_PacBio_dup_removed.bam
+
+samtools index ${file_base}_PacBio_dup_removed.bam 
+
+
+#Call variants using GATK
+#454
+
+$java1 -jar $GATK -T HaplotypeCaller -R $Loa_454_Variant -I ${file_base}_454_dup_removed.bam -L $Loa_454_Interval --emitRefConfidence GVCF -ploidy 2 -o ${file_base}_Loa_454.g.vcf
+
+#PacBio
+
+$java1 -jar $GATK -T HaplotypeCaller -R $Loa_PacBio_Variant -I ${file_base}_PacBio_dup_removed.bam -L $Loa_PacBio_Interval --emitRefConfidence GVCF -ploidy 2 -o ${file_base}_Loa_PacBio.g.vcf
+
+########################
+#Stop in pipeline: Need to combine all g.vcf files based on reference. g.vcf exist for each sample, for each reference genome, combine on this step.
+#$java1 -jar $GATK -T GenotypeGVCFs -R <Reference.Variant> -variant <sample1.g.vcf> --variant <sample2.g.vcf> -o <variants.raw.vcf>
+#raw.vcf will allow us to select variants according to type and filter based on set criteria either by INFO field (across all samples), or by FORMAT (filter individual samples)
+#Next steps require the raw.vcf file to be named by reference (either Loa_454.raw.vcf of Loa_PacBio.raw.vcf) 
+########################
+
+#Select variants based on their type, either SNP or INDEL
+
+#454
+$java1 -jar $GATK -T SelectVariants -R $Loa_454_Variant -V Loa_454.raw.vcf -o Loa_454.snp.raw.vcf -L $Loa_454_Interval -selectType SNP 
+
+$java1 -jar $GATK -T SelectVariants -R $Loa_454_Variant -V Loa_454.raw.vcf -o Loa_454.indel.raw.vcf -L $Loa_454_Interval -selectType INDEL
+
+#PacBio
+$java1 -jar $GATK -T SelectVariants -R $Loa_PacBio_Variant -V Loa_PacBio.raw.vcf -o Loa_PacBio.snp.raw.vcf -L $Loa_PacBio_Interval -selectType SNP
+
+$java1 -jar $GATK -T SelectVariants -R $Loa_PacBio_Variant -V Loa_PacBio.raw.vcf -o Loa_PacBio.indel.raw.vcf -L $Loa_PacBio_Interval -selectType INDEL
+
+
+#DOC has been previously calculated by REFERENCE. Each sample had multiple .bam files, these were merged into one using samtools merge. To generate a single # for hard filtering, individual sample .bam files were given as bams.list
+#Calculate DOC
+#$java1 -jar $GATK -T DepthOfCoverage -R <Loa.Variant> -I bams.list -o $Reference_DepthOfCoverage -L loa_intervals --minMappingQuality 10 --minBaseQuality 10
+#DepthOfCoverage output will specifically be for the files in the loa_intervals, which is a list of the scaffolds that make up the Loa genome
+#Identify high quality variants by hard filtering. 'DP' (maximum depth filter) should be adjusted appropriately (e.g., 3 median absolute deviations above the median depth across all samples).
+#cat Reference_DepthOfCoverage | cut -f 2 | R --vanilla --slave -e "data=read.delim(pipe('cat /dev/stdin'), header=T); median(data[ , 1])+3*mad(data[ , 1])" > Reference_DepthOfCoverage.3_median_absolute_deviation
+
+#Hard filtering to select high quality variants
+
+#454
+
+$java1 -jar $GATK -T VariantFiltration -R $Loa_454_Variant -V Loa_454.snp.raw.vcf -o Loa_454.snp.filtered.vcf --filterExpression "DP > 46.239 || QD < 2.0 || FS > 60.0 || MQ < 40.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0" --filterName "snp_filter"
+
+$java1 -jar $GATK -T VariantFiltration -R $Loa_454_Variant -V Loa_454.indel.raw.vcf -o Loa_454.indel.filtered.vcf --filterExpression "DP > 46.239 || QD < 2.0 || FS > 200.0 || ReadPosRankSum < -20.0" --filterName "indel_filter"
+
+#PacBio
+
+$java1 -jar $GATK -T VariantFiltration -R $Loa_PacBio_Variant -V Loa_PacBio.snp.raw.vcf -o Loa_PacBio.snp.filtered.vcf --filterExpression "DP > 45.239 || QD < 2.0 || FS > 60.0 || MQ < 40.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0" --filterName "snp_filter"
+
+$java1 -jar $GATK -T VariantFiltration -R $Loa_PacBio_Variant -V Loa_PacBio.indel.raw.vcf -o Loa_PacBio.indel.filtered.vcf --filterExpression "DP > 45.239 || QD < 2.0 || FS > 200.0 || ReadPosRankSum < -20.0" --filterName "indel_filter"
+
+#Select Consensus Sequence SNPs
+#--excludeFiltered will get rid of any variant that was called, but filtered out by VariantFiltration
+
+$java1 -jar $GATK -T SelectVariants -R $Loa_454_Variant -V Loa_454.snp.filtered.vcf -o Loa_454.snp.consensus.vcf -restrictAllelesTo BIALLELIC --excludeFiltered -select "DP > 1.00" -select "AF > 0.90" 
+
+$java1 -jar $GATK -T SelectVariants -R $Loa_PacBio_Variant -V Loa_PacBio.snp.filtered.vcf -o Loa_PacBio.snp.consensus.vcf --restrictAllelesTo BIALLELIC --excludeFiltered -select "DP > 1.00" -select "AF > 0.90"
+
+echo "DONE"
