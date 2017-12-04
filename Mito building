@@ -1,0 +1,2 @@
+building contigs from bam files
+talking merged.bam for each individual, indexing them using samtools index, extracting reads aligning to SN:scf71800000063_1 (mitochondrial scaffold)
