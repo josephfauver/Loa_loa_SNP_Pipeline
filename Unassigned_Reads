@@ -1,0 +1,72 @@
+#!/bin/bash
+
+file_base=$1
+
+#.bam file is from Loa sequencing data following mapping reads to reference Loa genome (PRJNA 246086) and removal of duplicates 
+# using piccard tools MARKEDDUPLICATES
+
+f1=${file_base}_Loa_all_dup_removed.bam
+
+BBREFORM=/gscmnt/gc2732/mitrevalab/TOOLS/SOFTWARE/BBMap/bbmap/reformat.sh*
+
+JUVBT2=/gscmnt/gc2732/mitrevalab/collab/jofauver/References/Juvp120/Juvp120
+
+BOWTIE2=/gscmnt/gc2732/mitrevalab/TOOLS/SOFTWARE/bowtie2-2.2.5/bowtie2
+
+DIAMOND=/gscmnt/gc2732/mitrevalab/TOOLS/SOFTWARE/DIAMOND/diamond-master/diamond
+
+JUVDIAMOND=/gscmnt/gc2732/mitrevalab/collab/jofauver/References/Juvp120/Juvp120_aa.dmnd
+
+SPADES=/gscmnt/gc2732/mitrevalab/TOOLS/SOFTWARE/SPADES/SPAdes-3.11.1-Linux/bin/spades.py
+
+HUMANBT2=/gscmnt/gc2732/mitrevalab/RESOURCES/databases/Human_GRCh38.84/Bowtie2_Index/GRCh38.84
+
+NCBI_NR=/gscmnt/gc2732/mitrevalab/RESOURCES/databases/GenBank_FULL_nr/nr.downloaded_170825.faa
+
+#Removing reads that did NOT align to reference genome
+$BBREFORM in=$f1 out=${file_base}_unammped.fq unmappedonly
+
+#deinterleave fastq file
+$BBREFORM in=${file_base}_unammped.fq out1=${file_base}_end1.fq out2=${file_base}_end2.fq 
+
+f1=${file_base}_end1.fq
+f2=${file_base}_end2.fq
+
+#Try to align reads on nucleotide level using bowtie2 to .fasta file containing NT sequences from Litomosoides (AY582941.1) and Brugia (KF811252.1)  
+$BOWTIE2 -x $JUVBT2 -1 $f1 -2 $f2 -S ${file_base}_aligned.sam 
+
+f1=${file_base}_aligned.sam
+
+#Convert .sam file to .fastq
+$BBREFORM in=$f1 out=${file_base}.end12_JUVp120_aligned.fq mappedonly 
+
+#NOTE: No reads aligned on nucleotide level
+
+#Align reads to human genome using bowtie2
+
+f1=${file_base}_end1.fq
+f2=${file_base}_end2.fq
+
+$BOWTIE2 -x $HUMANBT2 -1 $f1 -2 $f2 -S ${file_base}_human_alignment.sam 
+
+f1=${file_base}_human_alignment.sam
+
+#Remove the reads that did not align
+$BBREFORM in=$f1 out=${file_base}.end12_human_nonaligned.fq unmappedonly
+
+f1=${file_base}.end12_human_nonaligned.fq 
+
+#deinterleave fastq file
+$BBREFORM in=$f1 out1=${file_base}.end1_human_nonaligned.fq out2=${file_base}.end2_human_nonaligned.fq
+
+f1=${file_base}.end1_human_nonaligned.fq
+f2=${file_base}.end2_human_nonaligned.fq
+
+#Build contigs from reads that did NOT align to human or Loa loa genome
+$SPADES -o ${file_base}.spades --pe1-1 $f1 --pe1-2 $f2 
+
+#Run blastx through DIAMOND against custom databse consisiting of A.A. sequences from Litomosoides (AAS92593.1) and Brugia (AHB87099.1)
+$DIAMOND blastx -d $JUVDIAMOND -q contigs.fasta -o ${file_base}.m8 
+
+#Run blastx through DIAMOND against NCBI NR database
+$DIAMOND blastx -d $NCBI_NR -q contigs.fasta -f 100 
