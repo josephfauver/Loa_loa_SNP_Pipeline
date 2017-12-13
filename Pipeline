@@ -52,9 +52,9 @@ $bwa mem -M -R "@RG\tID:SAMPLE1_RG1\tPL:illumina\tPU:SAMPLE1_RG1_UNIT1\tLB:LIBRA
 #samtools sort ${file_base}_454_aligned.bam ${file_base}_454.sorted
 
 #PacBio
-samtools view -bS ${file_base}_454_aligned.sam -o ${file_base}_PacBio_aligned.bam
+samtools view -bS ${file_base}_PacBio_aligned.sam -o ${file_base}_PacBio_aligned.bam
 
-samtools sort ${file_base}_454_aligned.bam ${file_base}_PacBio.sorted
+samtools sort ${file_base}_PacBio_aligned.bam ${file_base}_PacBio.sorted.bam
 
 # IF multiple bam files for same sample, combine here
 # Remove duplicate reads and index the output bam file
