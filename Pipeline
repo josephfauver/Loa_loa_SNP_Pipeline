@@ -38,7 +38,7 @@ Loa_PacBio_Interval=/gscmnt/gc2732/mitrevalab/collab/jofauver/Query/Final/loa_Pa
 
 #454 Reference Genome
 
-#$bwa mem -M -R "@RG\tID:SAMPLE1_RG1\tPL:illumina\tPU:SAMPLE1_RG1_UNIT1\tLB:LIBRARY1\tSM:SAMPLE1" $Loa_454 $f1 $f2 > ${file_base}_454_aligned.sam 
+$bwa mem -M -R "@RG\tID:SAMPLE1_RG1\tPL:illumina\tPU:SAMPLE1_RG1_UNIT1\tLB:LIBRARY1\tSM:SAMPLE1" $Loa_454 $f1 $f2 > ${file_base}_454_aligned.sam 
 
 #PacBio Reference Genome
 
@@ -47,9 +47,9 @@ $bwa mem -M -R "@RG\tID:SAMPLE1_RG1\tPL:illumina\tPU:SAMPLE1_RG1_UNIT1\tLB:LIBRA
 #Convert SAM file into BAM file
 
 #454
-#samtools view -bS ${file_base}_454_aligned.sam -o ${file_base}_454_aligned.bam
+samtools view -bS ${file_base}_454_aligned.sam -o ${file_base}_454_aligned.bam
 
-#samtools sort ${file_base}_454_aligned.bam ${file_base}_454.sorted
+samtools sort ${file_base}_454_aligned.bam ${file_base}_454.sorted
 
 #PacBio
 samtools view -bS ${file_base}_PacBio_aligned.sam -o ${file_base}_PacBio_aligned.bam
@@ -60,9 +60,9 @@ samtools sort ${file_base}_PacBio_aligned.bam ${file_base}_PacBio.sorted.bam
 # Remove duplicate reads and index the output bam file
 
 #454
-#java -Xmx8g -jar $MarkDuplicates MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 REMOVE_DUPLICATES=true ASSUME_SORTED=true METRICS_FILE=${file_base}_454_dedup.metrics INPUT=${file_base}_454.sorted.bam OUTPUT=${file_base}_454_dup_removed.bam
+java -Xmx8g -jar $MarkDuplicates MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 REMOVE_DUPLICATES=true ASSUME_SORTED=true METRICS_FILE=${file_base}_454_dedup.metrics INPUT=${file_base}_454.sorted.bam OUTPUT=${file_base}_454_dup_removed.bam
 
-#samtools index ${file_base}_454_dup_removed.bam 
+samtools index ${file_base}_454_dup_removed.bam 
 
 #PacBio
 java -Xmx8g -jar $MarkDuplicates MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 REMOVE_DUPLICATES=true ASSUME_SORTED=true METRICS_FILE=${file_base}._PacBio_dedup.metrics INPUT=${file_base}_PacBio.sorted.bam OUTPUT=${file_base}_PacBio_dup_removed.bam
@@ -72,7 +72,7 @@ samtools index ${file_base}_PacBio_dup_removed.bam
 #Call variants using GATK
 #454
 
-#$java1 -jar $GATK -T HaplotypeCaller -R $Loa_454_Variant -I ${file_base}_454_dup_removed.bam -L $Loa_454_Interval --emitRefConfidence GVCF -ploidy 2 -o ${file_base}_Loa_454.g.vcf
+$java1 -jar $GATK -T HaplotypeCaller -R $Loa_454_Variant -I ${file_base}_454_dup_removed.bam -L $Loa_454_Interval --emitRefConfidence GVCF -ploidy 2 -o ${file_base}_Loa_454.g.vcf
 
 #PacBio
 
@@ -88,9 +88,9 @@ $java1 -jar $GATK -T HaplotypeCaller -R $Loa_PacBio_Variant -I ${file_base}_PacB
 #Select variants based on their type, either SNP or INDEL
 
 #454
-#$java1 -jar $GATK -T SelectVariants -R $Loa_454_Variant -V Loa_454.raw.vcf -o Loa_454.snp.raw.vcf -L $Loa_454_Interval -selectType SNP 
+$java1 -jar $GATK -T SelectVariants -R $Loa_454_Variant -V Loa_454.raw.vcf -o Loa_454.snp.raw.vcf -L $Loa_454_Interval -selectType SNP 
 
-#$java1 -jar $GATK -T SelectVariants -R $Loa_454_Variant -V Loa_454.raw.vcf -o Loa_454.indel.raw.vcf -L $Loa_454_Interval -selectType INDEL
+$java1 -jar $GATK -T SelectVariants -R $Loa_454_Variant -V Loa_454.raw.vcf -o Loa_454.indel.raw.vcf -L $Loa_454_Interval -selectType INDEL
 
 #PacBio
 $java1 -jar $GATK -T SelectVariants -R $Loa_PacBio_Variant -V Loa_PacBio.raw.vcf -o Loa_PacBio.snp.raw.vcf -L $Loa_PacBio_Interval -selectType SNP
@@ -109,9 +109,9 @@ $java1 -jar $GATK -T SelectVariants -R $Loa_PacBio_Variant -V Loa_PacBio.raw.vcf
 
 #454
 
-#$java1 -jar $GATK -T VariantFiltration -R $Loa_454_Variant -V Loa_454.snp.raw.vcf -o Loa_454.snp.filtered.vcf --filterExpression "DP > 46.239 || QD < 2.0 || FS > 60.0 || MQ < 40.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0" --filterName "snp_filter"
+$java1 -jar $GATK -T VariantFiltration -R $Loa_454_Variant -V Loa_454.snp.raw.vcf -o Loa_454.snp.filtered.vcf --filterExpression "DP > 46.239 || QD < 2.0 || FS > 60.0 || MQ < 40.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0" --filterName "snp_filter"
 
-#$java1 -jar $GATK -T VariantFiltration -R $Loa_454_Variant -V Loa_454.indel.raw.vcf -o Loa_454.indel.filtered.vcf --filterExpression "DP > 46.239 || QD < 2.0 || FS > 200.0 || ReadPosRankSum < -20.0" --filterName "indel_filter"
+$java1 -jar $GATK -T VariantFiltration -R $Loa_454_Variant -V Loa_454.indel.raw.vcf -o Loa_454.indel.filtered.vcf --filterExpression "DP > 46.239 || QD < 2.0 || FS > 200.0 || ReadPosRankSum < -20.0" --filterName "indel_filter"
 
 #PacBio
 
@@ -122,7 +122,7 @@ $java1 -jar $GATK -T VariantFiltration -R $Loa_PacBio_Variant -V Loa_PacBio.inde
 #Select Consensus Sequence SNPs
 #--excludeFiltered will get rid of any variant that was called, but filtered out by VariantFiltration
 
-#$java1 -jar $GATK -T SelectVariants -R $Loa_454_Variant -V Loa_454.snp.filtered.vcf -o Loa_454.snp.consensus.vcf -restrictAllelesTo BIALLELIC --excludeFiltered -select "DP > 1.00" -select "AF > 0.90" 
+$java1 -jar $GATK -T SelectVariants -R $Loa_454_Variant -V Loa_454.snp.filtered.vcf -o Loa_454.snp.consensus.vcf -restrictAllelesTo BIALLELIC --excludeFiltered -select "DP > 1.00" -select "AF > 0.90" 
 
 $java1 -jar $GATK -T SelectVariants -R $Loa_PacBio_Variant -V Loa_PacBio.snp.filtered.vcf -o Loa_PacBio.snp.consensus.vcf --restrictAllelesTo BIALLELIC --excludeFiltered -select "DP > 1.00" -select "AF > 0.90"
 
